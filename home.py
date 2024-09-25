@@ -8,7 +8,6 @@ import pickle
 import matplotlib.pyplot as plt
 import random
 import os
-import pprint
 import sys
 from streamlit_option_menu import option_menu
 from datetime import date
@@ -17,7 +16,6 @@ import base64
 import time
 import weatherapi
 from weatherapi.rest import ApiException
-from pprint import pprint
 import pycaret
 from pycaret.regression import *
 from langchain_groq import ChatGroq
@@ -122,9 +120,10 @@ if menu == "Energy Bill Prediction":
                 st.write("Possibility of Rain: {}".format(rain))
                 st.write("# 🌤")
             
-
-    except ApiException as e:
-        print("Exception when calling APIsApi->forecast_weather: %s\n" % e)
+    except :
+        print("Exception when calling APIsApi->forecast_weather: error")
+    # except ApiException as e:
+    #     print("Exception when calling APIsApi->forecast_weather: %s\n" % e)
     with st.expander("Neighboring Building"):
         #Map
         #1. Function to geocode the location
