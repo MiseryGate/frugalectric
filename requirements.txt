@@ -14,7 +14,6 @@ weatherapi
 langchain
 langchain_groq
 SpeechRecognition
-pyaudio
 geopandas
 folium
 geopy
