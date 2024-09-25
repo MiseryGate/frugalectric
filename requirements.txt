@@ -13,7 +13,7 @@ pycaret
 weatherapi
 langchain
 langchain_groq
-speech_recognition
+SpeechRecognition
 pyaudio
 geopandas
 folium
