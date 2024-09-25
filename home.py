@@ -11,7 +11,6 @@ import os
 import pprint
 import sys
 from streamlit_option_menu import option_menu
-import requests
 from datetime import date
 import plotly.express as px
 import base64
@@ -23,17 +22,45 @@ import pycaret
 from pycaret.regression import *
 from langchain_groq import ChatGroq
 from langchain_experimental.agents.agent_toolkits import create_csv_agent
+import speech_recognition as sr
+import geopandas as gpd
+import folium
+from geopy.geocoders import Nominatim
+import requests
+from shapely.geometry import Polygon
+from streamlit_folium import st_folium
 
 groq_api = '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'
 llm = ChatGroq(temperature=0, model="llama3-70b-8192", api_key=groq_api)
+#Function for Speech to Text
+def recognize_speech_from_mic():
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
 
+    with mic as source:
+        st.write("Listening...")
+        recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(source)
+
+    try:
+        # Recognize speech using Google Web Speech API
+        text = recognizer.recognize_google(audio)
+        return text
+    except sr.UnknownValueError:
+        return "Sorry, I could not understand the audio."
+    except sr.RequestError as e:
+        return f"Could not request results from Google Speech Recognition service; {e}"
+
+# Streamlit UI
 # Configure API key authorization: ApiKeyAuth
 configuration = weatherapi.Configuration()
 configuration.api_key['key'] = 'b2c5c3a556a44c3d87f130538242409'
 
 
 LOGO_IMAGE = './logo_frugalectric_bg.png'
+# Read The Data
 data = pd.read_csv('./data/full_data.csv')
+#private_data = pd.read_excel('./data/private_data.csv')
 st.set_page_config(layout="wide")
 st.markdown(
     f"""
@@ -47,8 +74,8 @@ st.markdown("<h1 style='text-align: center; color: red;'>FRUGALECTRIC</h1>", uns
 # Load Model Log
 model_log = load_model('./best_model')
 #Menu
-menu = option_menu(None, ["Home","Energy Bill Prediction"], 
-    icons=['house', 'lightning-fill'], 
+menu = option_menu(None, ["Home","Energy Bill Prediction","Interact With AI"], 
+    icons=['house', 'lightning-fill','robot'], 
     menu_icon="cast", default_index=0, orientation="horizontal",
     styles={
         "container": {"padding": "0!important"},
@@ -61,51 +88,114 @@ if menu == "Home":
 if menu == "Energy Bill Prediction":
     st.title("Energy Bill Prediction")
     st.write(data.head())
-    tab1, tab2 = st.tabs([" 🌤 Weather Data", "🏡 Building Data"])
-    
-    with tab1:
-        tab1.subheader("A tab with a chart")
-        season = 'Spring'
-        location = st.text_input("Input your location")
-        if st.button("Save location"):
-            # create an instance of the API class
-            api_instance = weatherapi.APIsApi(weatherapi.ApiClient(configuration))
-            q = location # str | Pass US Zipcode, UK Postcode, Canada Postalcode, IP address, Latitude/Longitude (decimal degree) or city name. Visit [request parameter section](https://www.weatherapi.com/docs/#intro-request) to learn more.
-            days = 7 # int | Number of days of weather forecast. Value ranges from 1 to 14
-            # Since it is September 25th,2024
-            dt = '2024-10-01' # date | Date should be between today and next 14 day in yyyy-MM-dd format. e.g. '2015-01-01' (optional)
+    season = 'Spring'
+    location = st.text_input("Input your location")
+    # create an instance of the API class
+    api_instance = weatherapi.APIsApi(weatherapi.ApiClient(configuration))
+    q = location # str | Pass US Zipcode, UK Postcode, Canada Postalcode, IP address, Latitude/Longitude (decimal degree) or city name. Visit [request parameter section](https://www.weatherapi.com/docs/#intro-request) to learn more.
+    days = 7 # int | Number of days of weather forecast. Value ranges from 1 to 14
+    # Since it is September 26th,2024
+    dt = '2024-10-02' # date | Date should be between today and next 14 day in yyyy-MM-dd format. e.g. '2015-01-01' (optional)
 
-            try:
-                # Forecast API
-                api_response = api_instance.forecast_weather(q, days, dt=dt)
-                
-                st.write(api_response['forecast']['forecastday'][0]['day'])
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.metric(label="Temperature", value=api_response['forecast']['forecastday'][0]['day']['avgtemp_c'], delta=api_response['forecast']['forecastday'][0]['day']['maxtemp_c'] - api_response['forecast']['forecastday'][0]['day']['avgtemp_c'])
-                    st.metric(label="Humidity", value=api_response['forecast']['forecastday'][0]['day']['avghumidity'], delta=api_response['current']['humidity'] - api_response['forecast']['forecastday'][0]['day']['avghumidity'])
-                    humidity = api_response['forecast']['forecastday'][0]['day']['avghumidity']
-                    outdoor_temp = api_response['forecast']['forecastday'][0]['avgtemp_c']
-                with col2:
-                    
-                    rain = False
-                    if (api_response['forecast']['forecastday'][0]['day']['daily_will_it_rain']) == 1:
-                        rain = True
-                        
-                        st.write("Possibility of Rain: {}".format(rain))
-                        st.write("# 🌧")
-                    else:
-                        rain = False
-                        possibility_of_rain = False
-                        st.write("Possibility of Rain: {}".format(rain))
-                        st.write("# 🌤")
-                    
-
-            except ApiException as e:
-                print("Exception when calling APIsApi->forecast_weather: %s\n" % e)
+    try:
+        # Forecast API
+        api_response = api_instance.forecast_weather(q, days, dt=dt)
+        st.write("# Your weather forecast for {}.".format(dt))
+        #st.write(api_response['forecast']['forecastday'][0]['day'])
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(label="Temperature", value=api_response['forecast']['forecastday'][0]['day']['avgtemp_c'], delta=api_response['forecast']['forecastday'][0]['day']['maxtemp_c'] - api_response['forecast']['forecastday'][0]['day']['avgtemp_c'])
+            st.metric(label="Humidity", value=api_response['forecast']['forecastday'][0]['day']['avghumidity'], delta=api_response['current']['humidity'] - api_response['forecast']['forecastday'][0]['day']['avghumidity'])
+            humidity = api_response['forecast']['forecastday'][0]['day']['avghumidity']
+            outdoor_temp = api_response['forecast']['forecastday'][0]['day']['avgtemp_c']
+        with col2:
             
-    with tab2:
+            rain = False
+            if (api_response['forecast']['forecastday'][0]['day']['daily_will_it_rain']) == 1:
+                rain = True
+                
+                st.write("Possibility of Rain: {}".format(rain))
+                st.write("# 🌧")
+            else:
+                rain = False
+                possibility_of_rain = False
+                st.write("Possibility of Rain: {}".format(rain))
+                st.write("# 🌤")
+            
+
+    except ApiException as e:
+        print("Exception when calling APIsApi->forecast_weather: %s\n" % e)
+    with st.expander("Neighboring Building"):
+        #Map
+        #1. Function to geocode the location
+        def get_coordinates(location):
+            geolocator = Nominatim(user_agent="geoapi")
+            location = geolocator.geocode(location)
+            return location.latitude, location.longitude
+
+        # 2. Function to fetch building data
+        def get_building_footprints(lat, lon, radius=1000):
+            overpass_url = "http://overpass-api.de/api/interpreter"
+            
+            # Query for building ways and their associated nodes
+            overpass_query = f"""
+            [out:json];
+            (
+                way["building"](around:{radius},{lat},{lon});
+            );
+            out body;
+            >;
+            out skel qt;
+            """
+            
+            response = requests.get(overpass_url, params={'data': overpass_query})
+            data = response.json()
+            
+            # Parse nodes to get their coordinates
+            nodes = {node['id']: (node['lon'], node['lat']) for node in data['elements'] if node['type'] == 'node'}
+            
+            buildings = []
+            for element in data['elements']:
+                if element['type'] == 'way' and 'nodes' in element:
+                    # Get the coordinates for each node in the way
+                    points = [nodes[node_id] for node_id in element['nodes'] if node_id in nodes]
+                    if len(points) > 2:  # Only consider valid polygons
+                        polygon = Polygon(points)
+                        buildings.append(polygon)
+            
+            # Create a GeoDataFrame with the building footprints
+            gdf = gpd.GeoDataFrame(geometry=buildings)
+            return gdf
+
+        # 3. Function to map the buildings
+        def map_buildings(location):
+            # Get the coordinates from the location input
+            lat, lon = get_coordinates(location)
+            
+            # Fetch the building footprints
+            building_gdf = get_building_footprints(lat, lon)
+            
+            # Create a folium map centered at the input location
+            map_folium = folium.Map(location=[lat, lon], zoom_start=20)
+            folium.Marker([lat, lon], popup="Your Location", tooltip="Your Location").add_to(map_folium)
+            
+            # Add the building footprints to the map
+            for _, row in building_gdf.iterrows():
+                points = [[point[1], point[0]] for point in list(row.geometry.exterior.coords)]
+                folium.Polygon(locations=points, color="blue", fill=True).add_to(map_folium)
+            
+            return map_folium
+
+        # Streamlit UI
+        st.title("Building Footprints Visualization")
+        location = st.text_input("Your Current Location : ", "Melbourne VIC 3000")
+
+        # Generate the map with building footprints
+        map_result = map_buildings(location)
+            
+    # Display the map in Streamlit
+    st_folium(map_result, width=800,height=600)
+    with st.expander("Weather Data"):
         #Weather Data
         location = 'Melbourne'
         api_instance = weatherapi.APIsApi(weatherapi.ApiClient(configuration))
@@ -123,7 +213,8 @@ if menu == "Energy Bill Prediction":
 
         humidity = api_response['forecast']['forecastday'][0]['day']['avghumidity']
         outdoor_temp = api_response['forecast']['forecastday'][0]['day']['avgtemp_c']
-        tab2.subheader("Building Data")
+
+    with st.expander("Building Data"):
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown("<p style='text-align: center; color: #FFCC29; font-family:arial'>Window Type</p>", unsafe_allow_html=True)
@@ -237,15 +328,25 @@ if menu == "Energy Bill Prediction":
             with st.spinner('Wait for it...'):
                 st.success('Done!')
                 #pred_1 = predict_model(model_log, data=df_kosong_1)
-            def query_data(query):
-                response = agent.invoke(query)
-                return response
-            # Create the CSV agent
-            reader_data = './data/full_data.csv'
-            agent = create_csv_agent(llm, reader_data, verbose=True, allow_dangerous_code=True)
+            
             #st.write("Energy Consumption Prediction : ", pred_1 + 'kwh')
-            query = "how do you decreased energy bill and energy consumption with this data?"
-            #query = "what can you interprete with this data?"
+
+if menu == "Interact With AI":
+    st.write("# Interact With AI")
+    def query_data(query):
+        response = agent.invoke(query)
+        return response
+    # Create the CSV agent
+    reader_data = './data/private_data.csv'
+    agent = create_csv_agent(llm, reader_data, verbose=True, allow_dangerous_code=True)
+    if st.button("Record Speech"):
+        with st.spinner("Recording... and try to elaborate your question..."):
+            text_output = recognize_speech_from_mic()
+            st.success("Recording complete!")
+            query = text_output
+            #query = "what can you interpret with this data?"
             response = query_data(query)
-            st.write(response)
+            st.header('You ask: "{}"'.format(response['input']))
+            st.header(response["output"])
+    
         

@@ -1,2 +1,2 @@
 building_size,num_floors,num_occupants,insulation_quality,window_type,hvac_efficiency,lighting_efficiency,appliance_efficiency,water_heating_efficiency,renewable_energy,outdoor_temp,humidity,season,window_type_single-pane,window_type_double-pane,window_type_triple-pane,possibility_of_rain_False,season_Spring,season_Autumn ,season_Winter,season_Summer
-0.0,1,1,0.5,0,0.5,0.5,0.8,0.9,0.04,10.8,61,0,0,1,0,0,1,0,0,0
+0.0,1,1,0.5,0,0.5,0.5,0.8,0.9,0.04,10.0,67,0,0,1,0,0,1,0,0,0
