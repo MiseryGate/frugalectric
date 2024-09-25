@@ -19,6 +19,13 @@ import time
 import weatherapi
 from weatherapi.rest import ApiException
 from pprint import pprint
+import pycaret
+from pycaret.regression import *
+from langchain_groq import ChatGroq
+from langchain_experimental.agents.agent_toolkits import create_csv_agent
+
+groq_api = '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'
+llm = ChatGroq(temperature=0, model="llama3-70b-8192", api_key=groq_api)
 
 # Configure API key authorization: ApiKeyAuth
 configuration = weatherapi.Configuration()
@@ -36,9 +43,9 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
+st.markdown("<h1 style='text-align: center; color: red;'>FRUGALECTRIC</h1>", unsafe_allow_html=True)
 # Load Model Log
-model_log = pickle.load(open('./best_model.pkl', 'rb'))
+model_log = load_model('./best_model')
 #Menu
 menu = option_menu(None, ["Home","Energy Bill Prediction"], 
     icons=['house', 'lightning-fill'], 
@@ -165,10 +172,12 @@ if menu == "Energy Bill Prediction":
             
         if st.button('Predict Energy Bill'):
             #Create tabel predict
-            data_pred = data.drop(['energy_kwh'],axis=1)
+            data_pred = data.drop(['possibility_of_rain','season','window_type'],axis=1)
             index=[0]
+            energy_kwh = data['energy_kwh'][0]
             df_1_pred = pd.DataFrame({
                         'building_size' : building_size,
+                        'energy_kwh' : energy_kwh,
                         'num_floors' : num_floors,
                         'num_occupants' : num_occupants,
                         'insulation_quality':insulation_quality,
@@ -221,5 +230,22 @@ if menu == "Energy Bill Prediction":
             df_kosong_1['season_Autumn '] = df_1_pred['season_Autumn']
             df_kosong_1['season_Winter'] = df_1_pred['season_Winter']
             df_kosong_1['season_Summer'] = df_1_pred['season_Summer']
-            st.write("Data Prediksi :")            
+            st.write("Prediction Data :")
+            df_kosong_1 = df_kosong_1.drop(['possibility_of_rain'],axis=1)
             st.write(df_kosong_1)
+            data_predict = df_kosong_1.to_csv('./data/data_predict.csv',index=False)
+            with st.spinner('Wait for it...'):
+                st.success('Done!')
+                #pred_1 = predict_model(model_log, data=df_kosong_1)
+            def query_data(query):
+                response = agent.invoke(query)
+                return response
+            # Create the CSV agent
+            reader_data = './data/full_data.csv'
+            agent = create_csv_agent(llm, reader_data, verbose=True, allow_dangerous_code=True)
+            #st.write("Energy Consumption Prediction : ", pred_1 + 'kwh')
+            query = "how do you decreased energy bill and energy consumption with this data?"
+            #query = "what can you interprete with this data?"
+            response = query_data(query)
+            st.write(response)
+        
