@@ -15,7 +15,7 @@ import plotly.express as px
 import base64
 import time
 import weatherapi
-from weatherapi.rest import ApiException
+#from weatherapi.rest import ApiException
 import pycaret
 from pycaret.regression import *
 from langchain_groq import ChatGroq
