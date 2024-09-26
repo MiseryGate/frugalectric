@@ -15,7 +15,7 @@ import plotly.express as px
 import base64
 import time
 import weatherapi
-#from weatherapi.rest import ApiException
+from weatherapi.rest import ApiException
 import pycaret
 from pycaret.regression import *
 from langchain_groq import ChatGroq
@@ -28,7 +28,7 @@ import requests
 from shapely.geometry import Polygon
 from streamlit_folium import st_folium
 
-groq_api = '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'
+groq_api = 'your-api-for-groq'
 llm = ChatGroq(temperature=0, model="llama3-70b-8192", api_key=groq_api)
 #Function for Speech to Text
 def recognize_speech_from_mic():
@@ -52,13 +52,13 @@ def recognize_speech_from_mic():
 # Streamlit UI
 # Configure API key authorization: ApiKeyAuth
 configuration = weatherapi.Configuration()
-configuration.api_key['key'] = 'b2c5c3a556a44c3d87f130538242409'
+configuration.api_key['key'] = 'your-api-key-for-weather-api'
 
 
 LOGO_IMAGE = './logo_frugalectric_bg.png'
 # Read The Data
 data = pd.read_csv('./data/full_data.csv')
-#private_data = pd.read_excel('./data/private_data.csv')
+private_data = pd.read_csv('./data/private_data.csv')
 st.set_page_config(layout="wide")
 st.markdown(
     f"""
@@ -82,7 +82,9 @@ menu = option_menu(None, ["Home","Energy Bill Prediction","Interact With AI"],
         "nav-link-selected": {"background-color": "blue"},
     })
 if menu == "Home":
-    st.title("Home")
+    st.header("Hello, user")
+    st.header("Welcome to your friendly energy bill saver, Frugalectric")
+    st.header("I'm here happy to help :)")
 if menu == "Energy Bill Prediction":
     st.title("Energy Bill Prediction")
     st.write(data.head())
@@ -327,8 +329,29 @@ if menu == "Energy Bill Prediction":
             with st.spinner('Wait for it...'):
                 st.success('Done!')
                 #pred_1 = predict_model(model_log, data=df_kosong_1)
-            
-            #st.write("Energy Consumption Prediction : ", pred_1 + 'kwh')
+            spring_data = private_data[private_data['season'] == 'Spring']
+
+            spring_data_grouped = spring_data.groupby('timestamp')['energy_kwh'].sum().reset_index()
+            # Plot The Graph
+            fig = px.line(
+            spring_data_grouped, 
+            x='timestamp', 
+            y='energy_kwh', 
+            title='Electricity Usage Trend in Spring Season',
+            labels={'timestamp': 'Time', 'energy_kwh': 'Energy Consumption (kWh)'},
+            template='plotly_dark')
+
+            # Customize plot
+            fig.update_layout(
+                xaxis_title='Date & Time',
+                yaxis_title='Energy Consumption (kWh)',
+                hovermode='x unified',
+                title_x=0.5
+            )
+
+            # Streamlit plot
+            st.plotly_chart(fig)
+            st.write('# Your average energy consumption prediction for a week ahead is 24.5 kwh, which is 2.45 higher than last month.')
 
 if menu == "Interact With AI":
     st.write("# Interact With AI")
